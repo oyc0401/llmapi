@@ -13,6 +13,16 @@ let ws = null;
 let keepaliveTimer = null;
 let targetTabId = null;
 let manualStop = false;
+let pendingAnswerResolve = null;
+
+// targetTabId의 content_main.js(MAIN world)에 질문을 보내고, 그쪽이 캡처한 답변(B)이
+// content_isolated.js를 거쳐 'answer' 메시지로 돌아올 때까지 기다린다.
+function askTab(text) {
+  return new Promise((resolve) => {
+    pendingAnswerResolve = resolve;
+    chrome.tabs.sendMessage(targetTabId, { type: 'ask', text });
+  });
+}
 
 function connect(onFirstResult) {
   manualStop = false;
@@ -42,9 +52,8 @@ function connect(onFirstResult) {
     const { text } = JSON.parse(event.data);
     console.log('[gpt-bridge] received:', text);
 
-    await new Promise((resolve) => setTimeout(resolve, 10000));
-
-    const answer = Array.from(text).join('-');
+    const answer = await askTab(text);
+    console.log('[gpt-bridge] answer:', answer);
 
     await fetch(`${SERVER_ORIGIN}/gpt/response`, {
       method: 'POST',
@@ -77,5 +86,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     sendResponse({ ok: true });
   } else if (message.type === 'status') {
     sendResponse({ connected: ws?.readyState === WebSocket.OPEN, tabId: targetTabId });
+  } else if (message.type === 'answer') {
+    pendingAnswerResolve?.(message.text);
+    pendingAnswerResolve = null;
   }
 });

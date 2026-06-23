@@ -10,5 +10,18 @@
     "default_popup": "popup.html"
   },
   "permissions": ["activeTab"],
-  "host_permissions": ["http://127.0.0.1:3010/*"]
+  "host_permissions": ["http://127.0.0.1:3010/*", "https://chatgpt.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://chatgpt.com/*"],
+      "js": ["content_main.js"],
+      "world": "MAIN",
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://chatgpt.com/*"],
+      "js": ["content_isolated.js"],
+      "run_at": "document_idle"
+    }
+  ]
 }
