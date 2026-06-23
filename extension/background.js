@@ -26,29 +26,33 @@ function askTab(text) {
 
 function connect(onFirstResult) {
   manualStop = false;
-  ws = new WebSocket(WS_URL);
+  // ws.close()는 비동기라 늦게 도착하는 close 이벤트가 그 사이 새로 만들어진 연결을
+  // 건드리지 않도록, socket 지역 변수로 "이게 여전히 현재 연결인지"를 구분한다.
+  const socket = new WebSocket(WS_URL);
+  ws = socket;
 
   if (onFirstResult) {
-    ws.addEventListener('open', () => onFirstResult(true), { once: true });
-    ws.addEventListener('error', () => onFirstResult(false), { once: true });
+    socket.addEventListener('open', () => onFirstResult(true), { once: true });
+    socket.addEventListener('error', () => onFirstResult(false), { once: true });
   }
 
-  ws.onopen = () => {
+  socket.onopen = () => {
     console.log('[gpt-bridge] connected, target tab:', targetTabId);
     keepaliveTimer = setInterval(() => {
-      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' }));
+      if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'ping' }));
     }, KEEPALIVE_INTERVAL_MS);
   };
 
-  ws.onclose = () => {
+  socket.onclose = () => {
+    if (ws !== socket) return; // 이미 교체된 stale 소켓의 늦은 close 이벤트는 무시
     console.log('[gpt-bridge] disconnected');
     clearInterval(keepaliveTimer);
     if (!manualStop) setTimeout(connect, RECONNECT_DELAY_MS);
   };
 
-  ws.onerror = (err) => console.error('[gpt-bridge] error', err);
+  socket.onerror = (err) => console.error('[gpt-bridge] error', err);
 
-  ws.onmessage = async (event) => {
+  socket.onmessage = async (event) => {
     const { text } = JSON.parse(event.data);
     console.log('[gpt-bridge] received:', text);
 
@@ -71,6 +75,15 @@ function stop() {
   ws?.close();
   ws = null;
 }
+
+// 대상 탭이 새로고침/이동되면 그 안의 content script(MAIN/ISOLATED world) 상태가
+// 전부 사라지므로 targetTabId 바인딩도 더 이상 유효하지 않다고 보고 중지한다.
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (tabId === targetTabId && changeInfo.status === 'loading') {
+    console.log('[gpt-bridge] target tab reloaded/navigated, stopping');
+    stop();
+  }
+});
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'start') {
