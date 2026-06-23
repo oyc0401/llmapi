@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "GPT Bridge",
+  "version": "0.0.1",
+  "description": "로컬 GPT 브릿지 서버(127.0.0.1:3010)와 WebSocket으로 연결되는 background 클라이언트",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "host_permissions": ["http://127.0.0.1:3010/*"]
+}
