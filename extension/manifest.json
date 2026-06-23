@@ -9,7 +9,7 @@
   "action": {
     "default_popup": "popup.html"
   },
-  "permissions": ["activeTab"],
+  "permissions": ["activeTab", "webNavigation"],
   "host_permissions": ["http://127.0.0.1:3010/*", "https://chatgpt.com/*"],
   "content_scripts": [
     {

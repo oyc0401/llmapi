@@ -76,13 +76,16 @@ function stop() {
   ws = null;
 }
 
-// 대상 탭이 새로고침/이동되면 그 안의 content script(MAIN/ISOLATED world) 상태가
-// 전부 사라지므로 targetTabId 바인딩도 더 이상 유효하지 않다고 보고 중지한다.
-chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  if (tabId === targetTabId && changeInfo.status === 'loading') {
-    console.log('[gpt-bridge] target tab reloaded/navigated, stopping');
-    stop();
-  }
+// 대상 탭이 진짜로 새로고침/페이지 이동되면 그 안의 content script(MAIN/ISOLATED world)
+// 상태가 전부 사라지므로 targetTabId 바인딩도 더 이상 유효하지 않다고 보고 중지한다.
+// chrome.tabs.onUpdated의 status:'loading'은 chatgpt.com이 새 채팅 첫 메시지를 보낼 때
+// history.pushState로 /c/<id>로 바꾸는 SPA 라우팅에도 걸려서(실제 리로드가 아님) 매번
+// 끊기는 문제가 있었다. webNavigation.onCommitted는 실제 문서 로드에만 발생하고
+// history API 기반 이동에는 발생하지 않아서 이 구분에 정확히 맞는다.
+chrome.webNavigation.onCommitted.addListener((details) => {
+  if (details.frameId !== 0 || details.tabId !== targetTabId) return;
+  console.log('[gpt-bridge] target tab reloaded/navigated, stopping');
+  stop();
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

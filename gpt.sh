@@ -7,3 +7,4 @@ body=$(jq -n --arg text "$text" '{text: $text}')
 curl -X POST http://127.0.0.1:3010/gpt \
   -H 'Content-Type: application/json' \
   -d "$body"
+echo
