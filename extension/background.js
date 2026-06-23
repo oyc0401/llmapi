@@ -1,5 +1,8 @@
 // background service worker는 어떤 페이지의 CSP와도 무관한 별도 실행 컨텍스트라서
 // chatgpt.com 같은 CSP 제한 페이지에서도 127.0.0.1로 WebSocket 연결이 가능하다.
+//
+// 자동 시작하지 않고, 팝업의 "시작" 버튼을 눌렀을 때만 연결한다.
+// 그때의 활성 탭 id를 targetTabId로 저장해둔다 (나중에 DOM 조작 메시지를 보낼 대상).
 
 const SERVER_ORIGIN = 'http://127.0.0.1:3010';
 const WS_URL = 'ws://127.0.0.1:3010';
@@ -8,21 +11,29 @@ const KEEPALIVE_INTERVAL_MS = 20000; // Chrome 116+: WS로 주기적 메시지�
 
 let ws = null;
 let keepaliveTimer = null;
+let targetTabId = null;
+let manualStop = false;
 
-function connect() {
+function connect(onFirstResult) {
+  manualStop = false;
   ws = new WebSocket(WS_URL);
 
+  if (onFirstResult) {
+    ws.addEventListener('open', () => onFirstResult(true), { once: true });
+    ws.addEventListener('error', () => onFirstResult(false), { once: true });
+  }
+
   ws.onopen = () => {
-    console.log('[gpt-bridge] connected');
+    console.log('[gpt-bridge] connected, target tab:', targetTabId);
     keepaliveTimer = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' }));
     }, KEEPALIVE_INTERVAL_MS);
   };
 
   ws.onclose = () => {
-    console.log('[gpt-bridge] disconnected, retrying...');
+    console.log('[gpt-bridge] disconnected');
     clearInterval(keepaliveTimer);
-    setTimeout(connect, RECONNECT_DELAY_MS);
+    if (!manualStop) setTimeout(connect, RECONNECT_DELAY_MS);
   };
 
   ws.onerror = (err) => console.error('[gpt-bridge] error', err);
@@ -44,4 +55,27 @@ function connect() {
   };
 }
 
-connect();
+function stop() {
+  manualStop = true;
+  targetTabId = null;
+  clearInterval(keepaliveTimer);
+  ws?.close();
+  ws = null;
+}
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === 'start') {
+    targetTabId = message.tabId;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      sendResponse({ ok: true, connected: true });
+      return;
+    }
+    connect((connected) => sendResponse({ ok: true, connected }));
+    return true; // 비동기로 sendResponse를 호출하겠다는 표시
+  } else if (message.type === 'stop') {
+    stop();
+    sendResponse({ ok: true });
+  } else if (message.type === 'status') {
+    sendResponse({ connected: ws?.readyState === WebSocket.OPEN, tabId: targetTabId });
+  }
+});
