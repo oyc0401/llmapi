@@ -9,6 +9,8 @@ interface PendingRequest {
 
 @Injectable()
 export class GptService {
+  private static readonly NEXT_TURN_DELAY_MS = 3000;
+
   private client: WebSocket | null = null;
   private readonly queue: PendingRequest[] = [];
   private inFlight = false;
@@ -46,9 +48,13 @@ export class GptService {
     if (!current) {
       throw new ConflictException('대기 중인 요청이 없습니다.');
     }
-    this.inFlight = false;
     current.resolve(text);
-    this.processNext();
+    // inFlight를 바로 풀지 않고 3초 후에 풀어서, 그 사이 들어오는 다음 요청은
+    // 큐에 쌓이기만 하고 processNext()가 막혀 즉시 전송되지 않게 한다.
+    setTimeout(() => {
+      this.inFlight = false;
+      this.processNext();
+    }, GptService.NEXT_TURN_DELAY_MS);
   }
 
   private processNext(): void {

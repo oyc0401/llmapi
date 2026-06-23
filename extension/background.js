@@ -8,6 +8,7 @@ const SERVER_ORIGIN = 'http://127.0.0.1:3010';
 const WS_URL = 'ws://127.0.0.1:3010';
 const RECONNECT_DELAY_MS = 3000;
 const KEEPALIVE_INTERVAL_MS = 20000; // Chrome 116+: WS로 주기적 메시지가 오가면 service worker가 종료되지 않음
+const PONG_TIMEOUT_MS = 5000; // ping 보낸 뒤 이 시간 안에 pong이 안 오면 연결이 죽은 것으로 본다
 
 let ws = null;
 let keepaliveTimer = null;
@@ -31,6 +32,23 @@ function connect(onFirstResult) {
   const socket = new WebSocket(WS_URL);
   ws = socket;
 
+  // pong이 안 오는 좀비 연결을 감지하기 위한 상태. socket마다 별도로 가져야 해서
+  // (재연결 시 새 socket의 closure에) 모듈 전역이 아니라 connect() 지역으로 둔다.
+  let awaitingPong = false;
+  let pongTimeoutTimer = null;
+
+  function sendPing() {
+    if (socket.readyState !== WebSocket.OPEN) return;
+    awaitingPong = true;
+    socket.send(JSON.stringify({ type: 'ping' }));
+    pongTimeoutTimer = setTimeout(() => {
+      if (awaitingPong) {
+        console.warn('[gpt-bridge] pong 응답 없음 — 연결이 죽은 것으로 보고 재연결합니다');
+        socket.close();
+      }
+    }, PONG_TIMEOUT_MS);
+  }
+
   if (onFirstResult) {
     socket.addEventListener('open', () => onFirstResult(true), { once: true });
     socket.addEventListener('error', () => onFirstResult(false), { once: true });
@@ -38,22 +56,29 @@ function connect(onFirstResult) {
 
   socket.onopen = () => {
     console.log('[gpt-bridge] connected, target tab:', targetTabId);
-    keepaliveTimer = setInterval(() => {
-      if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'ping' }));
-    }, KEEPALIVE_INTERVAL_MS);
+    keepaliveTimer = setInterval(sendPing, KEEPALIVE_INTERVAL_MS);
   };
 
   socket.onclose = () => {
     if (ws !== socket) return; // 이미 교체된 stale 소켓의 늦은 close 이벤트는 무시
     console.log('[gpt-bridge] disconnected');
     clearInterval(keepaliveTimer);
+    clearTimeout(pongTimeoutTimer);
     if (!manualStop) setTimeout(connect, RECONNECT_DELAY_MS);
   };
 
   socket.onerror = (err) => console.error('[gpt-bridge] error', err);
 
   socket.onmessage = async (event) => {
-    const { text } = JSON.parse(event.data);
+    const message = JSON.parse(event.data);
+
+    if (message.type === 'pong') {
+      awaitingPong = false;
+      clearTimeout(pongTimeoutTimer);
+      return;
+    }
+
+    const { text } = message;
     console.log('[gpt-bridge] received:', text);
 
     const answer = await askTab(text);
