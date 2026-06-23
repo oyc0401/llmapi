@@ -78,6 +78,12 @@ function connect(onFirstResult) {
       return;
     }
 
+    if (message.type === 'newChat') {
+      console.log('[gpt-bridge] new chat 요청');
+      chrome.tabs.sendMessage(targetTabId, { type: 'newChat' });
+      return;
+    }
+
     const { text } = message;
     console.log('[gpt-bridge] received:', text);
 

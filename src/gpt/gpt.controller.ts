@@ -17,4 +17,10 @@ export class GptController {
     this.gptService.handleResponse(dto.text);
     return { ok: true };
   }
+
+  @Post('new')
+  requestNewChat(): { ok: true } {
+    this.gptService.requestNewChat();
+    return { ok: true };
+  }
 }

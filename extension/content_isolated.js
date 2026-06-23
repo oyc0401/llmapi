@@ -5,6 +5,8 @@
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === 'ask') {
     window.dispatchEvent(new CustomEvent('gpt-bridge:ask', { detail: { text: message.text } }));
+  } else if (message.type === 'newChat') {
+    window.dispatchEvent(new CustomEvent('gpt-bridge:new-chat'));
   }
 });
 

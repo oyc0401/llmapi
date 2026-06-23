@@ -142,4 +142,16 @@
   window.addEventListener('gpt-bridge:ask', (e) => {
     sendText(e.detail.text);
   });
+
+  // 사이드바의 실제 "새 채팅" 링크를 직접 클릭한다. 새로 만든 <a> 태그를 클릭하면
+  // React가 핸들러를 안 붙여놔서 진짜 페이지 이동이 일어나지만, 이미 DOM에 있는 이
+  // 엘리먼트를 클릭하면 Next.js가 pushState로 처리해서 페이지 리로드가 없다.
+  window.addEventListener('gpt-bridge:new-chat', () => {
+    const button = document.querySelector('[data-testid="create-new-chat-button"]');
+    if (!button) {
+      console.warn('[gpt-bridge] 새 채팅 버튼을 찾지 못함');
+      return;
+    }
+    button.click();
+  });
 })();

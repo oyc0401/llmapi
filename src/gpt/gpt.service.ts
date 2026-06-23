@@ -33,6 +33,13 @@ export class GptService {
     }
   }
 
+  requestNewChat(): void {
+    if (!this.client) {
+      throw new ServiceUnavailableException('연결된 웹소켓 클라이언트가 없습니다.');
+    }
+    this.client.send(JSON.stringify({ type: 'newChat' }));
+  }
+
   ask(text: string): Promise<string> {
     if (!this.client) {
       throw new ServiceUnavailableException('연결된 웹소켓 클라이언트가 없습니다.');
