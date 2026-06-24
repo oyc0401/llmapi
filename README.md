@@ -1,5 +1,7 @@
 # 브라우저 챗지피티 터미널에서 다루기
 
+https://chatgpt.com/ 를 사용한 chatgpt api 입니다.
+
 ## 설치 방법
 
 1. nestjs 실행환경 설치하기 (인터넷 보고 설치하세요)
@@ -56,4 +58,30 @@ $ ./gpt.sh stop
 ```bash
 $ ./gpt.sh status
 {"message":"서버가 켜져 있습니다."}
+```
+
+## API 직접 호출
+
+서버는 기본적으로 `http://localhost:3010`에 떠있습니다.
+
+### `POST /gpt` — 질문 보내기
+
+**Body**
+
+```json
+{ "text": "안녕" }
+```
+
+**Response**
+
+```json
+{ "session": "6a3b91bf", "response": "안녕하세요! 무엇을 도와드릴까요?" }
+```
+
+### `POST /gpt/new` — 새 채팅 열기
+
+**Response**
+
+```json
+{ "message": "열렸습니다" }
 ```
