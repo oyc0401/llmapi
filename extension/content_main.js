@@ -10,6 +10,13 @@
   const TARGET_URL_PART = '/backend-api/f/conversation';
   const CONTENT_PATH = '/message/content/parts/0';
 
+  // session id는 URL의 대화 UUID 앞 8자리로 정한다 (예: /c/6a3b91bf-... -> 6a3b91bf).
+  // 새 채팅 직후처럼 아직 대화가 생성되기 전(/)에는 UUID가 없어서 null을 반환한다.
+  function getCurrentSessionId() {
+    const match = location.pathname.match(/\/c\/([0-9a-f]{8})/i);
+    return match ? match[1] : null;
+  }
+
   const originalFetch = window.fetch.bind(window);
 
   window.fetch = async (...args) => {
@@ -54,7 +61,9 @@
       // 빈 메시지(예: 사전 확인용 메시지)가 먼저 finished_successfully로 끝나는 경우가 있어서
       // 텍스트가 실제로 쌓인 경우만 완료로 취급한다.
       if (path === '/message/status' && op.v === 'finished_successfully' && text) {
-        window.dispatchEvent(new CustomEvent('gpt-bridge:answer', { detail: { text } }));
+        window.dispatchEvent(
+          new CustomEvent('gpt-bridge:answer', { detail: { text, session: getCurrentSessionId() } }),
+        );
       }
     };
 
@@ -153,5 +162,6 @@
       return;
     }
     button.click();
+    window.dispatchEvent(new CustomEvent('gpt-bridge:new-chat-done'));
   });
 })();

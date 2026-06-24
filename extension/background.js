@@ -88,14 +88,14 @@ function connect(onFirstResult) {
     console.log('[gpt-bridge] received:', text);
 
     const answer = await askTab(text);
-    console.log('[gpt-bridge] answer:', answer);
+    console.log('[gpt-bridge] answer:', answer.text, 'session:', answer.session);
 
     await fetch(`${SERVER_ORIGIN}/gpt/response`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: answer }),
+      body: JSON.stringify({ text: answer.text, session: answer.session }),
     });
-    console.log('[gpt-bridge] sent response:', answer);
+    console.log('[gpt-bridge] sent response:', answer.text);
   };
 }
 
@@ -134,7 +134,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   } else if (message.type === 'status') {
     sendResponse({ connected: ws?.readyState === WebSocket.OPEN, tabId: targetTabId });
   } else if (message.type === 'answer') {
-    pendingAnswerResolve?.(message.text);
+    pendingAnswerResolve?.({ text: message.text, session: message.session });
     pendingAnswerResolve = null;
+  } else if (message.type === 'newChatDone') {
+    console.log('[gpt-bridge] new chat opened');
+    fetch(`${SERVER_ORIGIN}/gpt/new/done`, { method: 'POST' });
   }
 });

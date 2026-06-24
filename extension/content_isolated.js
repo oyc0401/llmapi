@@ -11,5 +11,9 @@ chrome.runtime.onMessage.addListener((message) => {
 });
 
 window.addEventListener('gpt-bridge:answer', (e) => {
-  chrome.runtime.sendMessage({ type: 'answer', text: e.detail.text });
+  chrome.runtime.sendMessage({ type: 'answer', text: e.detail.text, session: e.detail.session });
+});
+
+window.addEventListener('gpt-bridge:new-chat-done', () => {
+  chrome.runtime.sendMessage({ type: 'newChatDone' });
 });
