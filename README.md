@@ -2,6 +2,8 @@
 
 https://chatgpt.com/ 를 사용한 chatgpt api 입니다.
 
+브라우저를 사용하므로 api key가 필요하지 않습니다.
+
 ## 설치 방법
 
 1. nestjs 실행환경 설치하기 (인터넷 보고 설치하세요)
