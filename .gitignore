@@ -3,3 +3,5 @@ dist/
 .env
 .gpt-server.pid
 .gpt-server.log
+blog.md
+.DS_Store
